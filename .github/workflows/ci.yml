@@ -24,10 +24,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Create virtual environment
-        run: uv venv
-
       - name: Install package (with dev extras)
+        # setup-uv already creates and activates a .venv for the requested Python.
         run: uv pip install -e ".[dev]"
 
       - name: Lint (ruff)
