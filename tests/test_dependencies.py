@@ -142,8 +142,8 @@ class TestDependencyManager:
         assert result is True
         mock_echo.assert_called_with("Skipping dependency validation (--skip-deps)")
 
-    @patch("osdep.validators.check_openstudio")
-    @patch("osdep.validators.check_openstudio_hpxml")
+    @patch("osdep.manager.check_openstudio")
+    @patch("osdep.manager.check_openstudio_hpxml")
     @patch("click.echo")
     def test_validate_all_success(self, mock_echo, mock_check_hpxml, mock_check_os, manager):
         """Test validate_all when all dependencies are satisfied."""
