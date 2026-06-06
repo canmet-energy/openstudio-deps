@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openstudio-deps"
+version = "0.1.0"
+description = "Reusable installer and validator for OpenStudio and OpenStudio-HPXML dependencies"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "H2K-HPXML Team" }]
+keywords = ["openstudio", "openstudio-hpxml", "energyplus", "dependencies", "installer"]
+
+dependencies = [
+    "click>=8.1",
+    "requests>=2.32.4",
+    "packaging>=20.0",
+    "filelock>=3.18.0",
+    "rich>=13.0.0",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "black",
+    "ruff",
+]
+
+[project.scripts]
+osdep = "osdep.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"osdep.resources" = ["*.json"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Network-dependent tests (GitHub release asset accessibility) are opt-in.
+# Run them with:  pytest -m integration
+addopts = "-m 'not integration'"
+markers = [
+    "integration: tests that require network access to external services",
+]
