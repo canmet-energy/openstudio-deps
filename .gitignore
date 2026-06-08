@@ -20,3 +20,8 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+
+# Don't include certificates
+.devcontainer/certs/*.certificate
+.devcontainer/certs/*.pem
+.devcontainer/certs/*.crt

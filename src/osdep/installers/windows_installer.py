@@ -184,7 +184,7 @@ class WindowsInstaller(BaseInstaller):
             # Extract to a temporary location first to handle nested folder structure
             extract_temp_dir = os.path.join(temp_dir, "extracted")
             os.makedirs(extract_temp_dir, exist_ok=True)
-            tar.extractall(extract_temp_dir)
+            tar.extractall(extract_temp_dir, filter="data")
 
             # Find the extracted OpenStudio folder (may have build hash in name)
             extracted_folders = [

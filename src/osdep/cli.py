@@ -8,7 +8,12 @@ and uninstalling OpenStudio and OpenStudio-HPXML.
 
 import click
 
-from .config import resolve_config
+from .config import (
+    check_version_compatibility,
+    get_compatible_hpxml_versions,
+    get_known_openstudio_versions,
+    resolve_config,
+)
 from .manager import DependencyManager
 
 
@@ -20,6 +25,7 @@ def validate_dependencies(
     hpxml_path=None,
     openstudio_path=None,
     config=None,
+    include_hpxml=False,
 ):
     """
     Convenience function to validate OpenStudio dependencies.
@@ -38,6 +44,8 @@ def validate_dependencies(
             Default: None (use environment variables or defaults)
         config (DependencyConfig|dict): Required versions. Default: None
             (use the injected module default or packaged defaults).
+        include_hpxml (bool): Also install/check OpenStudio-HPXML.
+            Default: False (OpenStudio only)
 
     Returns:
         bool: True if all dependencies are satisfied or successfully
@@ -52,6 +60,9 @@ def validate_dependencies(
 
         >>> # Check only, no installation
         >>> validate_dependencies(check_only=True)
+
+        >>> # Install OpenStudio and HPXML
+        >>> validate_dependencies(install_quiet=True, include_hpxml=True)
     """
     manager = DependencyManager(
         interactive=interactive,
@@ -60,6 +71,7 @@ def validate_dependencies(
         hpxml_path=hpxml_path,
         openstudio_path=openstudio_path,
         config=config,
+        include_hpxml=include_hpxml,
     )
 
     if check_only:
@@ -68,7 +80,7 @@ def validate_dependencies(
         return manager.validate_all()
 
 
-def verify_installation(config=None, hpxml_path=None, openstudio_path=None):
+def verify_installation(config=None, hpxml_path=None, openstudio_path=None, include_hpxml=False):
     """
     Verify a working OpenStudio + OpenStudio-HPXML installation.
 
@@ -80,6 +92,7 @@ def verify_installation(config=None, hpxml_path=None, openstudio_path=None):
         config (DependencyConfig|dict): Required versions. Default: None.
         hpxml_path (str|Path): Custom OpenStudio-HPXML path. Default: None.
         openstudio_path (str|Path): Custom OpenStudio path. Default: None.
+        include_hpxml (bool): Also verify OpenStudio-HPXML. Default: False.
 
     Returns:
         bool: True if all dependencies are detected, False otherwise.
@@ -92,6 +105,7 @@ def verify_installation(config=None, hpxml_path=None, openstudio_path=None):
         config=config,
         hpxml_path=hpxml_path,
         openstudio_path=openstudio_path,
+        include_hpxml=include_hpxml,
     )
     ok = manager.check_only()
 
@@ -115,7 +129,11 @@ def _build_config_overrides(args):
     if not overrides:
         return None
     # Merge over packaged/injected defaults so partial overrides are allowed
-    return resolve_config(overrides)
+    cfg = resolve_config(overrides)
+    warnings = check_version_compatibility(cfg.openstudio_version, cfg.openstudio_hpxml_version)
+    for w in warnings:
+        click.echo(click.style(f"WARNING: {w}", fg="yellow"), err=True)
+    return cfg
 
 
 def main():
@@ -123,18 +141,31 @@ def main():
     import argparse
     import sys
 
+    os_versions = get_known_openstudio_versions()
+    hpxml_by_os = {
+        v: get_compatible_hpxml_versions(v) for v in os_versions
+    }
+    version_lines = "\n".join(
+        f"  OpenStudio {v}:  {', '.join(hpxml_by_os[v])}"
+        for v in os_versions
+    )
+
     parser = argparse.ArgumentParser(
         prog="osdep",
         description="Install and manage OpenStudio, EnergyPlus, and OpenStudio-HPXML",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
+Available versions:
+{version_lines}
+
 Examples:
   %(prog)s                        # Check dependencies and prompt to install if missing
   %(prog)s --check-only           # Only check dependencies, don't install
   %(prog)s --auto-install         # Automatically install missing dependencies (no prompts)
   %(prog)s --verify               # Verify a working installation
   %(prog)s --uninstall            # Uninstall OpenStudio and OpenStudio-HPXML
-  %(prog)s --openstudio-version 3.11.0 --check-only   # Override the required version
+  %(prog)s --openstudio-version 3.10.0 --auto-install  # Install a specific version
+  %(prog)s --with-hpxml --auto-install             # Also install OpenStudio-HPXML
         """,
     )
 
@@ -152,6 +183,11 @@ Examples:
         help="Alias for --auto-install",
     )
     parser.add_argument("--skip-deps", action="store_true", help="Skip dependency validation")
+    parser.add_argument(
+        "--with-hpxml",
+        action="store_true",
+        help="Also install/check/uninstall OpenStudio-HPXML (not included by default)",
+    )
     parser.add_argument(
         "--uninstall",
         action="store_true",
@@ -172,7 +208,7 @@ Examples:
         "--openstudio-version",
         type=str,
         metavar="VERSION",
-        help="Override the required OpenStudio version",
+        help=f"Override the required OpenStudio version (valid: {', '.join(os_versions)})",
     )
     parser.add_argument(
         "--openstudio-sha",
@@ -180,11 +216,15 @@ Examples:
         metavar="SHA",
         help="Override the required OpenStudio build hash",
     )
+    all_hpxml = sorted(
+        {v for versions in hpxml_by_os.values() for v in versions},
+        reverse=True,
+    )
     parser.add_argument(
         "--hpxml-version",
         type=str,
         metavar="VERSION",
-        help="Override the required OpenStudio-HPXML version",
+        help=f"Override the required OpenStudio-HPXML version (valid: {', '.join(all_hpxml)})",
     )
 
     args = parser.parse_args()
@@ -195,6 +235,7 @@ Examples:
             config=config,
             hpxml_path=args.hpxml_path,
             openstudio_path=args.openstudio_path,
+            include_hpxml=args.with_hpxml,
         )
     elif args.uninstall:
         manager = DependencyManager(
@@ -202,6 +243,7 @@ Examples:
             hpxml_path=args.hpxml_path,
             openstudio_path=args.openstudio_path,
             config=config,
+            include_hpxml=args.with_hpxml,
         )
         success = manager.uninstall_dependencies()
     elif args.check_only:
@@ -210,6 +252,7 @@ Examples:
             hpxml_path=args.hpxml_path,
             openstudio_path=args.openstudio_path,
             config=config,
+            include_hpxml=args.with_hpxml,
         )
     elif args.install_quiet or args.auto_install:
         success = validate_dependencies(
@@ -219,6 +262,7 @@ Examples:
             hpxml_path=args.hpxml_path,
             openstudio_path=args.openstudio_path,
             config=config,
+            include_hpxml=args.with_hpxml,
         )
     else:
         # Default interactive mode
@@ -228,6 +272,7 @@ Examples:
             hpxml_path=args.hpxml_path,
             openstudio_path=args.openstudio_path,
             config=config,
+            include_hpxml=args.with_hpxml,
         )
 
     sys.exit(0 if success else 1)

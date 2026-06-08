@@ -1,0 +1,51 @@
+{
+    "openstudio": {
+        "3.11.0": {
+            "sha": "241b8abb4d",
+            "compatible_hpxml": [
+                "v1.12.0",
+                "v1.11.1",
+                "v1.11.0"
+            ]
+        },
+        "3.10.0": {
+            "sha": "86d7e215a1",
+            "compatible_hpxml": [
+                "v1.10.0"
+            ]
+        },
+        "3.9.0": {
+            "sha": "c77fbb9569",
+            "compatible_hpxml": [
+                "v1.9.1",
+                "v1.9.0"
+            ]
+        }
+    },
+    "openstudio_hpxml": {
+        "v1.12.0": {
+            "openstudio": "3.11.0",
+            "energyplus": "25.2.0"
+        },
+        "v1.11.1": {
+            "openstudio": "3.11.0",
+            "energyplus": "25.2.0"
+        },
+        "v1.11.0": {
+            "openstudio": "3.11.0",
+            "energyplus": "25.2.0"
+        },
+        "v1.10.0": {
+            "openstudio": "3.10.0",
+            "energyplus": "25.1.0"
+        },
+        "v1.9.1": {
+            "openstudio": "3.9.0",
+            "energyplus": "24.2.0"
+        },
+        "v1.9.0": {
+            "openstudio": "3.9.0",
+            "energyplus": "24.2.0"
+        }
+    }
+}

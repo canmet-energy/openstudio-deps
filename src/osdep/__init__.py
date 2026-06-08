@@ -14,7 +14,11 @@ from .cli import main
 from .cli import validate_dependencies
 from .cli import verify_installation
 from .config import DependencyConfig
+from .config import check_version_compatibility
+from .config import get_compatible_hpxml_versions
 from .config import get_default_config
+from .config import get_known_openstudio_versions
+from .config import lookup_openstudio_sha
 from .config import resolve_config
 from .config import set_default_config
 from .download_utils import download_file
@@ -104,6 +108,10 @@ __all__ = [
     "resolve_config",
     "set_default_config",
     "get_default_config",
+    # Version catalog
+    "lookup_openstudio_sha",
+    "get_compatible_hpxml_versions",
+    "get_known_openstudio_versions",
     # Download utilities
     "download_file",
     "safe_echo",

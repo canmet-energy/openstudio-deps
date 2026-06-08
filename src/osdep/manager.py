@@ -50,6 +50,7 @@ class DependencyManager:
         hpxml_path=None,
         openstudio_path=None,
         config=None,
+        include_hpxml=False,
     ):
         """
         Initialize dependency manager with configurable paths.
@@ -68,10 +69,13 @@ class DependencyManager:
             config (DependencyConfig|dict): Required versions for OpenStudio and
                 OpenStudio-HPXML. If None, uses the injected module default (see
                 osdep.set_default_config) or the package-shipped defaults.
+            include_hpxml (bool): Also install/check OpenStudio-HPXML.
+                Default: False (OpenStudio only)
         """
         self.interactive = interactive
         self.skip_deps = skip_deps
         self.install_quiet = install_quiet
+        self.include_hpxml = include_hpxml
 
         # Resolve dependency version configuration (injected or packaged defaults)
         self._config = resolve_config(config)
@@ -156,7 +160,7 @@ class DependencyManager:
         click.echo("🔍 Checking dependencies...")
 
         openstudio_ok = check_openstudio(self)
-        hpxml_ok = check_openstudio_hpxml(self)
+        hpxml_ok = check_openstudio_hpxml(self) if self.include_hpxml else True
 
         if openstudio_ok and hpxml_ok:
             click.echo("✅ All dependencies satisfied!")
@@ -184,7 +188,7 @@ class DependencyManager:
         click.echo("=" * 30)
 
         openstudio_ok = check_openstudio(self)
-        hpxml_ok = check_openstudio_hpxml(self)
+        hpxml_ok = check_openstudio_hpxml(self) if self.include_hpxml else True
 
         if openstudio_ok and hpxml_ok:
             click.echo("\n🎉 All dependencies satisfied!")
@@ -215,7 +219,7 @@ class DependencyManager:
 
         # Check what's currently installed
         openstudio_ok = check_openstudio(self)
-        hpxml_ok = check_openstudio_hpxml(self)
+        hpxml_ok = check_openstudio_hpxml(self) if self.include_hpxml else True
 
         # Install OpenStudio if missing
         if not openstudio_ok:
@@ -230,7 +234,7 @@ class DependencyManager:
             click.echo("\n📥 Installing OpenStudio-HPXML...")
             if not self._install_openstudio_hpxml():
                 success = False
-        else:
+        elif self.include_hpxml:
             click.echo("\n✅ OpenStudio-HPXML already installed")
 
         if success:
@@ -252,7 +256,7 @@ class DependencyManager:
 
         # Check what's currently installed
         openstudio_installed = check_openstudio(self)
-        hpxml_installed = check_openstudio_hpxml(self)
+        hpxml_installed = check_openstudio_hpxml(self) if self.include_hpxml else False
 
         if not openstudio_installed and not hpxml_installed:
             click.echo("ℹ️  No dependencies found to uninstall.")
@@ -319,7 +323,10 @@ class DependencyManager:
         if success:
             click.echo("\n✅ All dependencies installed successfully!")
             # Re-validate to confirm installation
-            return check_openstudio(self) and check_openstudio_hpxml(self)
+            ok = check_openstudio(self)
+            if self.include_hpxml:
+                ok = ok and check_openstudio_hpxml(self)
+            return ok
 
         click.echo("\n❌ Some dependencies failed to install.")
         return False

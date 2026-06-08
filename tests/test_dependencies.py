@@ -211,6 +211,74 @@ class TestDependencyManager:
         # The echo message is inside _handle_auto_install, so check that method was called
         mock_handle_install_quiet.assert_called_once_with(False, True)
 
+    def test_init_include_hpxml(self):
+        """Test DependencyManager initialization with include_hpxml."""
+        manager = DependencyManager(include_hpxml=True)
+        assert manager.include_hpxml is True
+
+    def test_init_include_hpxml_default(self):
+        """Test DependencyManager include_hpxml defaults to False."""
+        manager = DependencyManager()
+        assert manager.include_hpxml is False
+
+    @patch("osdep.manager.check_openstudio")
+    @patch("osdep.manager.check_openstudio_hpxml")
+    @patch("click.echo")
+    def test_validate_all_without_hpxml(self, mock_echo, mock_check_hpxml, mock_check_os):
+        """Test validate_all skips HPXML check by default."""
+        manager = DependencyManager(interactive=False)
+        mock_check_os.return_value = True
+
+        result = manager.validate_all()
+
+        assert result is True
+        mock_check_os.assert_called_once()
+        mock_check_hpxml.assert_not_called()
+
+    @patch("osdep.manager.check_openstudio")
+    @patch("osdep.manager.check_openstudio_hpxml")
+    @patch("click.echo")
+    def test_validate_all_with_hpxml(self, mock_echo, mock_check_hpxml, mock_check_os):
+        """Test validate_all checks HPXML when include_hpxml=True."""
+        manager = DependencyManager(interactive=False, include_hpxml=True)
+        mock_check_os.return_value = True
+        mock_check_hpxml.return_value = True
+
+        result = manager.validate_all()
+
+        assert result is True
+        mock_check_os.assert_called_once()
+        mock_check_hpxml.assert_called_once()
+
+    @patch("osdep.manager.check_openstudio")
+    @patch("osdep.manager.check_openstudio_hpxml")
+    @patch("click.echo")
+    def test_check_only_without_hpxml(self, mock_echo, mock_check_hpxml, mock_check_os):
+        """Test check_only skips HPXML check by default."""
+        manager = DependencyManager(interactive=False)
+        mock_check_os.return_value = True
+
+        result = manager.check_only()
+
+        assert result is True
+        mock_check_os.assert_called_once()
+        mock_check_hpxml.assert_not_called()
+
+    @patch("osdep.manager.check_openstudio")
+    @patch("osdep.manager.check_openstudio_hpxml")
+    @patch("click.echo")
+    def test_check_only_with_hpxml(self, mock_echo, mock_check_hpxml, mock_check_os):
+        """Test check_only checks HPXML when include_hpxml=True."""
+        manager = DependencyManager(interactive=False, include_hpxml=True)
+        mock_check_os.return_value = True
+        mock_check_hpxml.return_value = True
+
+        result = manager.check_only()
+
+        assert result is True
+        mock_check_os.assert_called_once()
+        mock_check_hpxml.assert_called_once()
+
 
 class TestOpenStudioDetection:
     """Test cases for OpenStudio detection methods."""
@@ -528,6 +596,7 @@ class TestUtilityFunctions:
                 hpxml_path="/custom/hpxml",
                 openstudio_path="/custom/openstudio",
                 config=None,
+                include_hpxml=False,
             )
 
     def test_is_debian_based_true(self):

@@ -91,5 +91,92 @@ def test_public_api_exports():
         "resolve_config",
         "download_file",
         "safe_echo",
+        "lookup_openstudio_sha",
+        "get_compatible_hpxml_versions",
+        "get_known_openstudio_versions",
     ]:
         assert hasattr(osdep, name), f"missing public export: {name}"
+
+
+# ─── Version catalog tests ──────────────────────────────────────────
+
+
+def test_lookup_openstudio_sha_known_version():
+    assert osdep.lookup_openstudio_sha("3.11.0") == "241b8abb4d"
+    assert osdep.lookup_openstudio_sha("3.10.0") == "86d7e215a1"
+    assert osdep.lookup_openstudio_sha("3.9.0") == "c77fbb9569"
+
+
+def test_lookup_openstudio_sha_unknown_version():
+    assert osdep.lookup_openstudio_sha("99.99.99") is None
+
+
+def test_get_compatible_hpxml_versions():
+    compat = osdep.get_compatible_hpxml_versions("3.11.0")
+    assert "v1.12.0" in compat
+    assert "v1.11.0" in compat
+
+
+def test_get_compatible_hpxml_versions_unknown():
+    assert osdep.get_compatible_hpxml_versions("99.99.99") == []
+
+
+def test_get_known_openstudio_versions():
+    versions = osdep.get_known_openstudio_versions()
+    assert len(versions) >= 3
+    # newest first
+    assert versions[0] == "3.11.0"
+    assert "3.9.0" in versions
+
+
+def test_from_dict_auto_resolves_sha():
+    """from_dict should resolve the SHA automatically for known versions."""
+    cfg = DependencyConfig.from_dict({
+        "openstudio_version": "3.9.0",
+        "openstudio_hpxml_version": "v1.9.1",
+    })
+    assert cfg.openstudio_sha == "c77fbb9569"
+
+
+def test_from_dict_explicit_sha_wins():
+    """An explicitly provided SHA should not be overwritten by the catalog."""
+    cfg = DependencyConfig.from_dict({
+        "openstudio_version": "3.9.0",
+        "openstudio_sha": "custom12345",
+        "openstudio_hpxml_version": "v1.9.1",
+    })
+    assert cfg.openstudio_sha == "custom12345"
+
+
+def test_resolve_config_version_only_override():
+    """resolve_config with only openstudio_version should auto-resolve SHA."""
+    cfg = resolve_config({"openstudio_version": "3.10.0"})
+    assert cfg.openstudio_sha == "86d7e215a1"
+
+
+def test_from_dict_unknown_version_still_requires_sha():
+    """An unknown version without SHA should still raise ValueError."""
+    with pytest.raises(ValueError, match="openstudio_sha"):
+        DependencyConfig.from_dict({
+            "openstudio_version": "99.99.99",
+            "openstudio_hpxml_version": "v1.0.0",
+        })
+
+
+def test_check_version_compatibility_compatible():
+    from osdep.config import check_version_compatibility
+    assert check_version_compatibility("3.11.0", "v1.12.0") == []
+
+
+def test_check_version_compatibility_incompatible():
+    from osdep.config import check_version_compatibility
+    warnings = check_version_compatibility("3.10.0", "v1.9.1")
+    assert len(warnings) == 2
+    assert "not listed as compatible" in warnings[0]
+    assert "expects OpenStudio 3.9.0" in warnings[1]
+
+
+def test_check_version_compatibility_unknown_versions():
+    from osdep.config import check_version_compatibility
+    # Unknown versions should not produce warnings (can't verify)
+    assert check_version_compatibility("99.0.0", "v99.0.0") == []

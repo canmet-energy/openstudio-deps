@@ -1,0 +1,73 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/universal
+{
+	"name": "openstudio-deps",
+	// Auto-copy the WSL host's corporate CAs into .devcontainer/certs/ before each
+	// build, so certctl trusts them in the container. Runs on the host; no-op if
+	// none present. certs/*.crt stays gitignored -- nothing is committed.
+	"initializeCommand": "mkdir -p ${localWorkspaceFolder}/.devcontainer/certs && cp /usr/local/share/ca-certificates/*.crt ${localWorkspaceFolder}/.devcontainer/certs/ 2>/dev/null || true",
+	"build": {
+		"dockerfile": "./Dockerfile",
+		"context": ".."
+	},
+	"containerEnv": {
+		"UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
+		"UV_PYTHON_PREFERENCE": "managed",
+		"UV_LINK_MODE": "copy",
+		"DEVCONTAINER_UV_VERSION": "0.8.15",
+		"DEVCONTAINER_PYTHON_VERSION": "3.12"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.black-formatter",
+				"ms-python.isort",
+				"ms-python.mypy-type-checker",
+				"charliermarsh.ruff",
+				"GitHub.copilot",
+				"Anthropic.claude-code"
+			],
+			"settings": {
+				// Copies ~/.gitconfig (and relevant includes) into the container
+				"dev.containers.copyGitConfig": true,
+				// Persists host credentials (e.g., Git Credential Manager) for Git in the container
+				"dev.containers.persistGitCredentials": true,
+				"python.defaultInterpreterPath": "./.venv/bin/python",
+				"python.terminal.activateEnvInCurrentTerminal": false,
+				// Auto venv activation + prompt handled by /etc/profile.d/dev-env-init.sh
+				"python.terminal.activateEnvironment": false,
+				"python.terminal.executeInFileDir": false,
+				"python.formatting.provider": "black",
+				"python.linting.enabled": true,
+				"python.linting.mypyEnabled": true,
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.organizeImports": "explicit"
+				},
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash",
+						"args": [
+							"--login"
+						]
+					}
+				},
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+	"forwardPorts": [
+		8000
+	],
+	"portsAttributes": {
+		"8000": {
+			"visibility": "public",
+			"protocol": "http",
+			"label": "Development Server"
+		}
+	},
+	"postCreateCommand": ".devcontainer/scripts/post-create.sh",
+	"containerUser": "vscode",
+	"remoteUser": "vscode"
+}

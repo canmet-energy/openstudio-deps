@@ -178,7 +178,7 @@ class LinuxInstaller(BaseInstaller):
                 # First extract to a temp location to handle the nested structure
                 temp_extract = os.path.join(temp_dir, "extracted")
                 with tarfile.open(tarball_path, "r:gz") as tar:
-                    tar.extractall(temp_extract)
+                    tar.extractall(temp_extract, filter="data")
 
                 # Find the actual OpenStudio directory (should be usr/local/openstudio-3.11.0)
                 # The tarball structure is: OpenStudio-3.11.0+.../usr/local/openstudio-3.11.0/

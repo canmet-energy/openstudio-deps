@@ -10,6 +10,7 @@ calling :func:`set_default_config` once at startup to apply an override globally
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 
 REQUIRED_FIELDS = ("openstudio_version", "openstudio_sha", "openstudio_hpxml_version")
 
@@ -30,7 +31,17 @@ class DependencyConfig:
 
     @classmethod
     def from_dict(cls, data):
-        """Build a DependencyConfig from a dict, validating required fields."""
+        """Build a DependencyConfig from a dict, validating required fields.
+
+        If ``openstudio_sha`` is missing but ``openstudio_version`` matches a
+        known version in the catalog, the SHA is resolved automatically.
+        """
+        # Auto-resolve SHA from catalog if not provided
+        if "openstudio_sha" not in data and "openstudio_version" in data:
+            sha = lookup_openstudio_sha(data["openstudio_version"])
+            if sha:
+                data = {**data, "openstudio_sha": sha}
+
         missing = [f for f in REQUIRED_FIELDS if f not in data]
         if missing:
             raise ValueError(
@@ -64,6 +75,90 @@ def _load_packaged_defaults():
         return json.load(f)
 
 
+@lru_cache(maxsize=1)
+def _load_version_catalog():
+    """Load the version catalog mapping OpenStudio versions to build SHAs."""
+    from importlib import resources
+
+    with (
+        resources.files("osdep.resources")
+        .joinpath("version_catalog.json")
+        .open(encoding="utf-8") as f
+    ):
+        return json.load(f)
+
+
+def lookup_openstudio_sha(version):
+    """Look up the build SHA for a known OpenStudio version.
+
+    Args:
+        version (str): OpenStudio version (e.g., "3.11.0")
+
+    Returns:
+        str or None: The 10-character build SHA, or None if not in the catalog.
+    """
+    catalog = _load_version_catalog()
+    entry = catalog.get("openstudio", {}).get(version)
+    return entry["sha"] if entry else None
+
+
+def get_compatible_hpxml_versions(openstudio_version):
+    """Return the list of HPXML versions compatible with an OpenStudio version.
+
+    Args:
+        openstudio_version (str): OpenStudio version (e.g., "3.11.0")
+
+    Returns:
+        list[str]: Compatible HPXML version tags, or empty list if unknown.
+    """
+    catalog = _load_version_catalog()
+    entry = catalog.get("openstudio", {}).get(openstudio_version)
+    return entry.get("compatible_hpxml", []) if entry else []
+
+
+def check_version_compatibility(openstudio_version, hpxml_version):
+    """Check whether an OpenStudio and HPXML version pair is compatible.
+
+    Args:
+        openstudio_version (str): OpenStudio version (e.g., "3.11.0")
+        hpxml_version (str): HPXML version tag (e.g., "v1.9.1")
+
+    Returns:
+        list[str]: Warning messages. Empty list if compatible or unknown.
+    """
+    warnings = []
+    catalog = _load_version_catalog()
+    os_entry = catalog.get("openstudio", {}).get(openstudio_version)
+    hpxml_entry = catalog.get("openstudio_hpxml", {}).get(hpxml_version)
+
+    if os_entry and hpxml_version not in os_entry.get("compatible_hpxml", []):
+        compatible = ", ".join(os_entry["compatible_hpxml"])
+        warnings.append(
+            f"HPXML {hpxml_version} is not listed as compatible with "
+            f"OpenStudio {openstudio_version}. Compatible HPXML versions: {compatible}"
+        )
+
+    if hpxml_entry and hpxml_entry.get("openstudio") != openstudio_version:
+        warnings.append(
+            f"HPXML {hpxml_version} expects OpenStudio {hpxml_entry['openstudio']}, "
+            f"not {openstudio_version}"
+        )
+
+    return warnings
+
+
+def get_known_openstudio_versions():
+    """Return all OpenStudio versions in the catalog.
+
+    Returns:
+        list[str]: Version strings sorted newest-first.
+    """
+    catalog = _load_version_catalog()
+    versions = list(catalog.get("openstudio", {}).keys())
+    versions.sort(key=lambda v: [int(x) for x in v.split(".")], reverse=True)
+    return versions
+
+
 def resolve_config(overrides=None):
     """Resolve a :class:`DependencyConfig`.
 
@@ -89,7 +184,18 @@ def resolve_config(overrides=None):
         return DependencyConfig.from_dict(_load_packaged_defaults())
 
     if isinstance(overrides, dict):
-        merged = {**_load_packaged_defaults(), **overrides}
+        defaults = _load_packaged_defaults()
+        merged = {**defaults, **overrides}
+        # If the caller overrode openstudio_version (to a *different* version)
+        # but not openstudio_sha, try to resolve the SHA from the catalog.
+        if (
+            "openstudio_version" in overrides
+            and "openstudio_sha" not in overrides
+            and overrides["openstudio_version"] != defaults.get("openstudio_version")
+        ):
+            catalog_sha = lookup_openstudio_sha(overrides["openstudio_version"])
+            if catalog_sha:
+                merged["openstudio_sha"] = catalog_sha
         return DependencyConfig.from_dict(merged)
 
     raise TypeError(
